@@ -65,14 +65,16 @@
 
     function getGradient(score, useGPA) {
         if (isNull(score) || (typeof score === 'number' && score < 60)) {
-            return { bg: 'hsl(240,30%,88%)', ratio: isFail(score) ? 0 : 1 };
+            let ratio = isFail(score) ? 0 : 1;
+            let pct = ratio * 100 + '%';
+            return { bg: `linear-gradient(to right, hsl(240,30%,88%), hsl(240,30%,88%) ${pct}, hsl(340,60%,65%) ${pct})`, ratio: ratio };
         }
         let r = calcRatio(score, useGPA);
         let c1 = `hsl(${120*r},${useGPA?97:100}%,75%)`;
         let c2 = `hsl(${120*r},${useGPA?97:100}%,70%)`;
         let c3 = `hsl(${120*r},${useGPA?57:60}%,65%)`;
         let pct = Math.max(r, 0.01) * 100 + '%';
-        return { bg: `linear-gradient(to right, ${c1}, ${c2} ${pct}, ${c3} ${pct})`, ratio: r };
+        return { bg: `linear-gradient(to right, ${c1}, ${c2} ${pct}, ${c3} ${pct})`, ratio: Math.max(r, 0.01) };
     }
 
     function formatNumber(n, decimals) {
@@ -135,6 +137,22 @@
     `);
 
     let useGPAMode = false;
+    let gmOrderCounter = 0;
+
+    function getDataVAttrs(el) {
+        if (!el) return [];
+        return Array.from(el.attributes).filter(a => a.name.startsWith('data-v-')).map(a => [a.name, a.value]);
+    }
+
+    function applyDataVAttrs(el, attrs) {
+        attrs.forEach(a => el.setAttribute(a[0], a[1]));
+        return el;
+    }
+
+    function gpaTo100Display(gpa) {
+        let v = gpaTo100(gpa);
+        return v === null ? '--.-' : v;
+    }
 
     function parseScore(text) {
         if (!text) return null;
@@ -197,7 +215,15 @@
 
     function getCourseTypeFromRow(row) {
         let detailsDiv = row.querySelector('.layout-row-middle .layout-vertical-down');
-        if (detailsDiv) return detailsDiv.textContent.trim();
+        if (!detailsDiv) return '';
+        let t = detailsDiv.textContent.trim();
+        let i = t.indexOf(' - ');
+        return i === -1 ? t : t.slice(0, i);
+    }
+
+    function getCourseNameFromRow(row) {
+        let nameDiv = row.querySelector('.layout-row-middle .layout-vertical-up');
+        if (nameDiv) return nameDiv.textContent.trim();
         return '';
     }
 
@@ -247,6 +273,10 @@
         let titleRow = block.querySelector(':scope > div:first-child .layout-row');
         let courseRowEls = Array.from(block.querySelectorAll('.course-row'));
         if (!titleRow || courseRowEls.length === 0) return;
+
+        courseRowEls.forEach(el => {
+            if (!el.dataset.gmOrder) el.dataset.gmOrder = gmOrderCounter++;
+        });
 
         let courseData = courseRowEls.map((el, index) => {
             let row = el.querySelector('.layout-row');
@@ -361,65 +391,201 @@
         block.dataset.gmProcessed = '1';
     }
 
-    function processOverallBlock(block) {
+    function getBlockTitle(block) {
+        let up = block.querySelector(':scope > div:first-child .layout-row-middle .layout-vertical-up');
+        return up ? up.textContent.trim() : '';
+    }
+
+    function getBlockRightUp(block) {
+        let up = block.querySelector(':scope > div:first-child .layout-row-right .layout-vertical-up');
+        return up ? up.textContent.trim() : '';
+    }
+
+    function normalizeGPA(text) {
+        if (!text) return '';
+        text = text.trim();
+        if (text === '-.--') return text;
+        return /^\d+(\.\d+)?$/.test(text) ? text : '';
+    }
+
+    function buildVertical(upText, downText, dv) {
+        let v = applyDataVAttrs(document.createElement('div'), dv);
+        v.className = 'layout-vertical';
+        let upDiv = applyDataVAttrs(document.createElement('div'), dv);
+        upDiv.className = 'layout-vertical-up';
+        upDiv.textContent = upText;
+        let downDiv = applyDataVAttrs(document.createElement('div'), dv);
+        downDiv.className = 'layout-vertical-down';
+        downDiv.textContent = downText;
+        v.appendChild(upDiv);
+        v.appendChild(downDiv);
+        return v;
+    }
+
+    function processOverallBlock(block, officialGPA) {
         if (block.dataset.gmProcessed) return;
 
         let titleRow = block.querySelector(':scope > div:first-child .layout-row');
         if (!titleRow) return;
 
-        let allCourseData = [];
+        let dv = getDataVAttrs(titleRow.querySelector('.layout-vertical-up') || titleRow);
+
+        let courses = [];
         document.querySelectorAll('.semester-block').forEach(sb => {
             if (sb === block) return;
+            if (getBlockTitle(sb).includes('总')) return;
             sb.querySelectorAll('.course-row').forEach(el => {
+                if (!el.dataset.gmOrder) el.dataset.gmOrder = gmOrderCounter++;
                 let row = el.querySelector('.layout-row');
-                allCourseData.push({
+                if (!row) return;
+                courses.push({
+                    order: parseInt(el.dataset.gmOrder, 10) || 0,
                     credit: getCreditFromRow(row),
-                    score: getScoreFromRow(row)
+                    score: getScoreFromRow(row),
+                    type: getCourseTypeFromRow(row),
+                    name: getCourseNameFromRow(row)
                 });
             });
         });
+        courses.sort((a, b) => a.order - b.order);
 
-        let avgGPA = calcWeightedGPA(allCourseData);
-        let avg100 = gpaTo100(avgGPA);
-        titleRow.style.backgroundColor = getTitleColor(avg100, useGPAMode);
-        let titleMiddle = titleRow.querySelector('.layout-row-middle');
-        if (titleMiddle) titleMiddle.style.padding = '0';
+        let totalCredit = 0;
+        courses.forEach(c => {
+            let g = scoreToGPA(c.score);
+            if (g !== null || c.score === 'P' || c.score === 'EX') totalCredit += c.credit;
+        });
 
-        if (!titleRow.querySelector('.gm-credit-cell')) {
-            let totalCredit = 0;
-            allCourseData.forEach(c => {
-                let gpa = scoreToGPA(c.score);
-                if (gpa !== null || c.score === 'P' || c.score === 'EX') {
-                    if (c.score !== 'W') totalCredit += c.credit;
+        let overallGPA = calcWeightedGPA(courses);
+        let overall100 = gpaTo100Display(overallGPA);
+        let overall100Color = typeof overall100 === 'number' ? overall100 : null;
+        let overall100Text = typeof overall100 === 'number' ? formatNumber(overall100, 1) : overall100;
+
+        let gpaText = (officialGPA && officialGPA.trim()) || normalizeGPA(getBlockRightUp(block)) || (overallGPA !== null ? overallGPA.toFixed(2) : '-.--');
+        if (!gpaText) gpaText = '-.--';
+
+        titleRow.style.backgroundColor = getTitleColor(overall100Color, useGPAMode);
+        titleRow.innerHTML = '';
+
+        let left = applyDataVAttrs(document.createElement('div'), dv);
+        left.className = 'layout-row-left';
+        left.appendChild(buildVertical(formatNumber(totalCredit, 1), '学分', dv));
+
+        let middle = applyDataVAttrs(document.createElement('div'), dv);
+        middle.className = 'layout-row-middle';
+        middle.appendChild(buildVertical('总绩点', `共 ${courses.length} 门课程，官方 GPA：${gpaText}`, dv));
+
+        let right = applyDataVAttrs(document.createElement('div'), dv);
+        right.className = 'layout-row-right';
+        right.appendChild(buildVertical(gpaText, overall100Text, dv));
+
+        titleRow.appendChild(left);
+        titleRow.appendChild(middle);
+        titleRow.appendChild(right);
+
+        while (block.children.length > 1) block.removeChild(block.lastElementChild);
+
+        let byType = new Map();
+        courses.forEach(c => {
+            let k = c.type || '';
+            let a = byType.get(k);
+            if (!a) byType.set(k, a = []);
+            a.push(c);
+        });
+
+        let overallRows = [];
+        byType.forEach((arr, title) => {
+            let gpaSum = 0, scoreSum = 0, n = 0, creditSum = 0;
+            let data = [];
+            arr.forEach(c => {
+                if (c.score !== 'W') creditSum += c.credit;
+                data.push({ left: `${formatNumber(c.credit, 1)}学分`, right: `${c.name} - ${getScoreDisplay(c.score)}` });
+                if (typeof c.score === 'number') {
+                    n++;
+                    scoreSum += c.score;
+                    let g = scoreToGPA(c.score);
+                    gpaSum += g === null ? 0 : g;
                 }
             });
-            let creditCell = document.createElement('div');
-            creditCell.className = 'layout-row-left gm-credit-cell';
-            creditCell.innerHTML = `
-                <div class="layout-vertical">
-                    <div class="layout-vertical-up">${formatNumber(totalCredit, 1)}</div>
-                    <div class="layout-vertical-down">学分</div>
-                </div>
-            `;
-            titleRow.insertBefore(creditCell, titleRow.firstChild);
-        }
+            overallRows.push({
+                title: title,
+                title_xf: formatNumber(creditSum, 1),
+                class: `共 ${n} 门课程`,
+                xf: formatNumber(gpaSum / n, 2),
+                score: formatNumber(scoreSum / n, 2),
+                scoreValue: scoreSum / n,
+                data: data
+            });
+        });
+        overallRows.sort((a, b) => parseFloat(b.score) > parseFloat(a.score) ? 1 : -1);
 
-        let titleRightDiv = titleRow.querySelector('.layout-row-right .layout-vertical');
-        if (titleRightDiv) {
-            let upDiv = titleRightDiv.querySelector('.layout-vertical-up');
-            let downDiv = titleRightDiv.querySelector('.layout-vertical-down');
-            if (!downDiv) {
-                downDiv = document.createElement('div');
-                downDiv.className = 'layout-vertical-down';
-                if (upDiv) {
-                    Array.from(upDiv.attributes).forEach(attr => {
-                        if (attr.name.startsWith('data-v-')) downDiv.setAttribute(attr.name, attr.value);
-                    });
-                }
-                titleRightDiv.appendChild(downDiv);
+        overallRows.forEach(r => {
+            let wrap = applyDataVAttrs(document.createElement('div'), dv);
+            let row = applyDataVAttrs(document.createElement('div'), dv);
+            row.className = 'layout-row course-row';
+            if (typeof r.scoreValue === 'number' && !isNaN(r.scoreValue)) {
+                row.dataset.gmScore = String(r.scoreValue);
+                applyCourseColor(row, r.scoreValue);
             }
-            downDiv.textContent = avg100 !== null ? formatNumber(avg100, 1) : '-.--';
-        }
+
+            let extra = applyDataVAttrs(document.createElement('div'), dv);
+            extra.className = 'layout-vertical-extra layout-vertical-extra-show';
+            extra.style.display = 'none';
+            let extraInner = applyDataVAttrs(document.createElement('div'), dv);
+            r.data.forEach(d => {
+                let p = applyDataVAttrs(document.createElement('p'), dv);
+                let b = applyDataVAttrs(document.createElement('b'), dv);
+                b.textContent = d.left + ' - ';
+                p.appendChild(b);
+                p.appendChild(document.createTextNode(d.right));
+                extraInner.appendChild(p);
+            });
+            extra.appendChild(extraInner);
+
+            row.onclick = function() {
+                extra.style.display = extra.style.display === 'none' ? '' : 'none';
+            };
+
+            let l = applyDataVAttrs(document.createElement('div'), dv);
+            l.className = 'layout-row-left';
+            l.appendChild(buildVertical(r.title_xf, '学分', dv));
+
+            let m = applyDataVAttrs(document.createElement('div'), dv);
+            m.className = 'layout-row-middle';
+            let mv = applyDataVAttrs(document.createElement('div'), dv);
+            mv.className = 'layout-vertical';
+            let mu = applyDataVAttrs(document.createElement('div'), dv);
+            mu.className = 'layout-vertical-up';
+            let span = applyDataVAttrs(document.createElement('span'), dv);
+            let badge = applyDataVAttrs(document.createElement('span'), dv);
+            badge.className = 'prevent-click-handler course-badge course-badge-primary';
+            let icon = applyDataVAttrs(document.createElement('span'), dv);
+            icon.className = 'icon icon-share';
+            badge.appendChild(icon);
+            span.appendChild(badge);
+            span.appendChild(document.createTextNode(r.title));
+            mu.appendChild(span);
+            let md = applyDataVAttrs(document.createElement('div'), dv);
+            md.className = 'layout-vertical-down';
+            md.textContent = r.class;
+            mv.appendChild(mu);
+            mv.appendChild(md);
+            mv.appendChild(extra);
+            m.appendChild(mv);
+
+            let rr = applyDataVAttrs(document.createElement('div'), dv);
+            rr.className = 'layout-row-right';
+            rr.appendChild(buildVertical(r.xf, r.score, dv));
+
+            row.appendChild(l);
+            row.appendChild(m);
+            row.appendChild(rr);
+
+            wrap.appendChild(row);
+            block.appendChild(wrap);
+        });
+
+        block.dataset.gmOverall = '1';
+        if (overall100Color !== null) block.dataset.gmOverallScore = String(overall100Color);
 
         block.dataset.gmProcessed = '1';
     }
@@ -428,22 +594,41 @@
         let semesterBlocks = Array.from(document.querySelectorAll('.semester-block'));
         if (semesterBlocks.length === 0) return;
 
-        let lastBlock = semesterBlocks[semesterBlocks.length - 1];
-        let lastTitleUp = lastBlock.querySelector('.layout-row-middle .layout-vertical-up');
-        let isLastOverall = lastTitleUp && lastTitleUp.textContent.includes('总');
+        let gpaBlock = null, creditBlock = null;
+        semesterBlocks.forEach(b => {
+            let t = getBlockTitle(b);
+            if (t.includes('总绩点')) gpaBlock = b;
+            else if (t.includes('总学分')) creditBlock = b;
+        });
+        let target = creditBlock || gpaBlock;
+        let officialGPA = gpaBlock ? normalizeGPA(getBlockRightUp(gpaBlock)) : null;
 
         semesterBlocks.forEach((block, i) => {
-            if (isLastOverall && i === semesterBlocks.length - 1) {
-                processOverallBlock(block);
-            } else {
-                processSemesterBlock(block);
+            if (block === target) return processOverallBlock(block, officialGPA);
+            if (block === gpaBlock && creditBlock) {
+                if (!block.dataset.gmHidden) {
+                    block.style.display = 'none';
+                    block.dataset.gmHidden = '1';
+                }
+                return;
             }
+            if (getBlockTitle(block).includes('总')) return;
+            processSemesterBlock(block);
         });
     }
 
     function updateColors() {
         document.querySelectorAll('.semester-block').forEach(block => {
             let titleRow = block.querySelector(':scope > div:first-child .layout-row');
+            if (block.dataset.gmOverall === '1') {
+                let s = parseFloat(block.dataset.gmOverallScore || '');
+                titleRow.style.backgroundColor = getTitleColor(isNaN(s) ? null : s, useGPAMode);
+                block.querySelectorAll('.layout-row.course-row').forEach(row => {
+                    let v = parseFloat(row.dataset.gmScore || '');
+                    if (!isNaN(v)) applyCourseColor(row, v);
+                });
+                return;
+            }
             let courseData = [];
 
             block.querySelectorAll('.course-row .layout-row').forEach(row => {
